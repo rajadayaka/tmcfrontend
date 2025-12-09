@@ -118,7 +118,7 @@ const HeatmapGenerator = () => {
     if (urlTrigger) setUrlTrigger(false);
   }, [urlTrigger]);
 
-  // --- Keyboard Toggles ---
+  // --- Keyboard Toggles -----
   useEffect(() => {
     const handleKey = (e) => {
       if (!isSubmitted) return;
