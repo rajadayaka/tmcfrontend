@@ -12,7 +12,10 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.8",
+<<<<<<< HEAD
     "d3": "^7.9.0",
+=======
+>>>>>>> heatmap/main
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
     "react": "^19.2.0",

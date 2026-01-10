@@ -13,7 +13,12 @@
 /* Assumes this is the root element or is within a full-height body/html structure */
 .heatmap-wrapper {
   display: flex;
+<<<<<<< HEAD
   flex-direction: column; /* Stacks children vertically: Title, Form, Display, Legend */ /* Take full height of the viewport */
+=======
+  flex-direction: column; /* Stacks children vertically: Title, Form, Display, Legend */
+  height: 100vh; /* Take full height of the viewport */
+>>>>>>> heatmap/main
   font-family: Arial, sans-serif;
   padding: 10px;
   background-color: #f0f0f0; /* Light background for the whole page */
@@ -189,6 +194,7 @@ button[type="submit"]:disabled {
   margin-right: 5px;
   border: 1px solid #555; /* Add a border for visibility on white background */
 }
+<<<<<<< HEAD
 
 /* --- Navigation Arrows --- */
 .nav-arrow {
@@ -223,3 +229,5 @@ button[type="submit"]:disabled {
 .nav-arrow i {
   line-height: 1;
 }
+=======
+>>>>>>> heatmap/main
