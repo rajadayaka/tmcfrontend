@@ -5,11 +5,15 @@ import HeatmapForm from "./HeatmapForm";
 import TrafficHeatmapD3 from "./TrafficHeatmapD3";
 import CameraPreviewRow from "./CameraPreviewRow";
 import { ROUTE_IMAGES, ROUTE_DIRECTIONS } from "./RouteConfig";
+import districtBoundaryData from "./districtBoundary.json";
 
+
+const today = dayjs().format("YYYY-MM-DD");
+const yesterday = dayjs().subtract(1, "day").format("YYYY-MM-DD");
 const DEFAULT_FORM_STATE = {
   state: "IN",
-  start_date: "2025-09-22",
-  end_date: "2025-09-25",
+  start_date: yesterday,
+  end_date: today,
   route: "I-70",
   start_mm: 0,
   end_mm: 20,
@@ -17,8 +21,19 @@ const DEFAULT_FORM_STATE = {
   decel: -0.25,
   width: 400,
   height: 300,
-  size: 7,
+  size: 2,
+  timezone: "EST",
 };
+
+const DISTRICT_COLORS = {
+  'Crawfordsville': 'rgb(231, 239, 249)',
+  'Fort Wayne': 'rgb(207, 207, 207)',
+  'Greenfield': 'rgb(237, 255, 222)',
+  'La Porte': 'rgb(253, 233, 223)',
+  'Seymour': 'rgb(195, 196, 243)',
+  'Vincennes': 'rgb(244, 158, 170)',
+};
+
 
 
 
@@ -40,9 +55,13 @@ const HeatmapGenerator = () => {
 
   const [cameraLocations, setCameraLocations] = useState([]);
   const [showCameraLines, setShowCameraLines] = useState(false);
+  const [exitLines, setExitLines] = useState([]);
+  const [showExitLines, setShowExitLines] = useState(false);
   const [showTimeIndicators, setShowTimeIndicators] = useState(true);
   const [selectedMMs, setSelectedMMs] = useState([null, null, null]);
+  const [districtMode, setDistrictMode] = useState(0); // 0: off, 1: fill+lines, 2: lines
   const [currentGraphTime, setCurrentGraphTime] = useState(null);
+
 
   const [metaData, setMetaData] = useState({ cost: 0, bytes: 0 });
 
@@ -51,6 +70,7 @@ const HeatmapGenerator = () => {
     truck: true,
     accel: false,
     decel: false,
+    vizzion: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -215,6 +235,7 @@ const HeatmapGenerator = () => {
 
     setMetaData({ cost: 0, bytes: 0 });
     setCameraLocations([]);
+    setExitLines([]);
     setSelectedMMs([null, null, null]);
     setCurrentGraphTime(null);
 
@@ -225,7 +246,7 @@ const HeatmapGenerator = () => {
     const end_mm = stateToUse.end_mm;
     const state = stateToUse.state;
 
-    const cameraUrl = `http://localhost:5000/get_camera_locations?state=${state}&route=${route}&start_mile=${start_mm}&end_mile=${end_mm}`;
+    const cameraUrl = `http://localhost:8080/get_camera_locations?state=${state}&route=${route}&start_mile=${start_mm}&end_mile=${end_mm}`;
     fetch(cameraUrl)
       .then((res) => res.json())
       .then((data) => {
@@ -248,11 +269,22 @@ const HeatmapGenerator = () => {
       })
       .catch((err) => console.error("Error fetching cameras:", err));
 
+    // Fetch Exit Lines
+    const exitLinesUrl = `http://localhost:8080/get_exit_line?state=${state}&route=${route}&start_mile=${start_mm}&end_mile=${end_mm}`;
+    fetch(exitLinesUrl)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setExitLines(data);
+        }
+      })
+      .catch((err) => console.error("Error fetching exit lines:", err));
+
     // Calc Tasks
     const stateDirections = ROUTE_DIRECTIONS[state] || ROUTE_DIRECTIONS['IN'];
     const directions = stateDirections[route] || ["E", "W"];
 
-    const types = ["car", "truck", "events"];
+    const types = ["car", "truck", "events", "vizzion"];
 
     // setProgress({ completed: 0, total: totalTasks });
 
@@ -290,7 +322,7 @@ const HeatmapGenerator = () => {
               const processResponse = async (formData, urlOverride) => {
                 await fetchData(
                   urlOverride ||
-                  `http://localhost:5000/generate_heatmap_${type}`,
+                  `http://localhost:8080/generate_heatmap_${type}`,
                   formData,
                   signal,
                   async (dataChunk) => {
@@ -327,13 +359,25 @@ const HeatmapGenerator = () => {
               if (type === "car" || type === "truck") {
                 const formattedRoute = route.startsWith('I-') ? route : route.replace('I', 'I-');
                 const roadName = `${formattedRoute} ${dir}`;
+                const { timezone } = stateToUse;
                 // API expects End Date to be the boundary.
                 const endDatePayload = dayjs(chunkEnd)
                   .add(1, "day")
                   .format("YYYY-MM-DD");
                 const endpoint = type === "car" ? "getMiles" : "getMiles_truck";
-                const url = `http://localhost:5000/api/heatmap/${endpoint}/${state}/${roadName}/${chunkStart}/${endDatePayload}/${start_mm}/${end_mm}`;
+                const url = `http://localhost:8080/api/heatmap/${endpoint}/${state}/${roadName}/${chunkStart}/${endDatePayload}/${start_mm}/${end_mm}/${timezone}`;
                 await processResponse(null, url);
+              } else if (type === "vizzion") {
+                const formattedRoute = route.startsWith('I-') ? route : route.replace('I', 'I-');
+                const formData = new FormData();
+                formData.append("state", state);
+                formData.append("start_date", chunkStart);
+                formData.append("end_date", chunkEnd);
+                formData.append("direction", `${formattedRoute} ${dir}`);
+                formData.append("start_mm", start_mm);
+                formData.append("end_mm", end_mm);
+                formData.append("timezone", stateToUse.timezone);
+                await processResponse(formData);
               } else {
                 // Events
                 const formattedRoute = route.startsWith('I-') ? route : route.replace('I', 'I-');
@@ -348,6 +392,7 @@ const HeatmapGenerator = () => {
                 formData.append("route", route);
                 formData.append("start_mm", start_mm);
                 formData.append("end_mm", end_mm);
+                formData.append("timezone", stateToUse.timezone);
                 if (accel !== undefined) formData.append("accel", accel);
                 if (decel !== undefined) formData.append("decel", decel);
                 await processResponse(formData);
@@ -405,11 +450,29 @@ const HeatmapGenerator = () => {
       Object.keys(params).forEach((key) => {
         // If we have route params matching keys in state
         if (newState.hasOwnProperty(key)) {
-          const value = params[key];
+          // const value = params[key];
+          let value = params[key];
+
+          // Support keyword dates like 'today' or 'today-1'
+          if ((key === "start_date" || key === "end_date") && value) {
+            if (value === "today") {
+              value = dayjs().format("YYYY-MM-DD");
+            } else if (value.startsWith("today-")) {
+              const days = parseInt(value.split("-")[1], 10);
+              if (!isNaN(days)) {
+                value = dayjs().subtract(days, "day").format("YYYY-MM-DD");
+              }
+            }
+          }
+
           const isNum = ["start_mm", "end_mm"].includes(key);
           newState[key] = isNum ? parseFloat(value) || 0 : value;
         }
       });
+
+      if (params.timezone) {
+        newState.timezone = params.timezone;
+      }
 
       setDraftFormState(newState);
       setAppliedFormState(newState);
@@ -428,7 +491,10 @@ const HeatmapGenerator = () => {
       if (key === "N") setVisibleLayers((p) => ({ ...p, accel: !p.accel }));
       if (key === "B") setVisibleLayers((p) => ({ ...p, decel: !p.decel }));
       if (key === "L") setShowCameraLines((prev) => !prev);
+      if (key === "E") setShowExitLines((prev) => !prev);
+      if (key === "R") setDistrictMode((prev) => (prev + 1) % 3);
       if (key === "S") setShowTimeIndicators((prev) => !prev);
+      if (key === "Z") setVisibleLayers((p) => ({ ...p, vizzion: !p.vizzion }));
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -447,9 +513,9 @@ const HeatmapGenerator = () => {
     e.preventDefault();
     isFormNavigation.current = true;
     setAppliedFormState(draftFormState);
-    const { state, start_date, end_date, route, start_mm, end_mm } = draftFormState;
-    // Updated route structure including state
-    navigate(`/${state}/${start_date}/${end_date}/${route}/${start_mm}/${end_mm}`, {
+    const { state, start_date, end_date, route, start_mm, end_mm, timezone } = draftFormState;
+    // Updated route structure including state and timezone
+    navigate(`/${state}/${start_date}/${end_date}/${route}/${start_mm}/${end_mm}/${timezone}`, {
       replace: true,
     });
     setIsSubmitted(true);
@@ -496,7 +562,7 @@ const HeatmapGenerator = () => {
         handleSubmit={handleSubmit}
       />
 
-      <div style={{ marginTop: "100px" }}>
+      <div style={{ marginTop: "65px" }}>
         {isSubmitted && (
           <div>
             <div style={{ position: "relative" }}>
@@ -519,7 +585,12 @@ const HeatmapGenerator = () => {
                 selectedTime={currentGraphTime}
                 cameraLocations={cameraLocations}
                 showCameraLines={showCameraLines}
+                exitLines={exitLines}
+                showExitLines={showExitLines}
+                districtBoundaryData={districtBoundaryData}
+                districtMode={districtMode}
                 showTimeIndicators={showTimeIndicators}
+
               >
                 {/* FOOTER */}
                 <div
@@ -529,24 +600,30 @@ const HeatmapGenerator = () => {
                 >
                   <div className="d-flex align-items-center gap-3 flex-nowrap">
                     <span className="fw-semibold">Toggle layers:</span>
-                    {["truck", "car", "accel", "decel", "lines"].map((k) => (
+                    {["truck", "car", "accel", "decel", "vizzion", "lines"].map((k) => ( //"exits", "districts"
                       <div
+
                         key={k}
                         className="d-flex align-items-center gap-2 flex-nowrap"
                       >
                         <kbd
-                          className={`badge ${k === "lines"
-                            ? showCameraLines
+                          className={`badge ${k === "lines" || k === "exits" || k === "districts"
+                            ? (k === "lines" ? showCameraLines : k === "exits" ? showExitLines : districtMode > 0)
                               ? "bg-dark"
                               : "bg-secondary"
                             : visibleLayers[k]
+
                               ? k === "truck"
                                 ? "bg-primary"
                                 : k === "car"
                                   ? "bg-success"
                                   : k === "accel"
                                     ? "bg-warning"
-                                    : "bg-danger"
+                                    : k === "decel"
+                                      ? "bg-danger"
+                                      : k === "vizzion"
+                                        ? "bg-brown"
+                                        : "bg-secondary"
                               : "bg-secondary"
                             } fs-6 px-3 py-2`}
                         >
@@ -558,19 +635,29 @@ const HeatmapGenerator = () => {
                                 ? "N"
                                 : k === "decel"
                                   ? "B"
-                                  : "L"}
+                                  : k === "vizzion"
+                                    ? "Z"
+                                    : k === "lines" ? "L" : k === "exits" ? "E" : "R"}
                         </kbd>
+
                         <span
                           className={
-                            (k === "lines" ? showCameraLines : visibleLayers[k])
+                            (k === "lines" ? showCameraLines : k === "exits" ? showExitLines : k === "districts" ? districtMode > 0 : visibleLayers[k])
                               ? "text-dark fw-semibold"
                               : "text-muted"
                           }
                         >
                           {k === "lines"
                             ? "Cam Lines"
-                            : k.charAt(0).toUpperCase() + k.slice(1)}
+                            : k === "exits"
+                              ? "Exit Lines"
+                              : k === "vizzion"
+                                ? "Vizzion Drives"
+                                : k === "districts"
+                                  ? "Districts"
+                                  : k.charAt(0).toUpperCase() + k.slice(1)}
                         </span>
+
                       </div>
                     ))}
                   </div>
@@ -622,6 +709,26 @@ const HeatmapGenerator = () => {
                       </div>
                     ))}
                   </div>
+                  {/* boundary color data print */}
+                  {/* {districtMode === 1 && districtBoundaryData[appliedFormState.route] && (
+                    <div className="d-flex align-items-center gap-3 flex-nowrap border-start ps-3">
+                      <span className="fw-semibold small">Districts:</span>
+                      {Object.keys(districtBoundaryData[appliedFormState.route]).map((name) => (
+                        <div key={name} className="d-flex align-items-center gap-2 flex-nowrap">
+                          <div
+                            style={{
+                              width: "14px",
+                              height: "14px",
+                              backgroundColor: DISTRICT_COLORS[name] || "#eee",
+                              border: "1px solid #ddd",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span className="small">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )} */}
                 </div>
               </TrafficHeatmapD3>
 

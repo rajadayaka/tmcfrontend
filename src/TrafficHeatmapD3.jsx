@@ -16,7 +16,17 @@ const SPEED_COLORS = [
 const COLOR_GREATER_65 = "rgb(204, 255, 153)"; // >65
 const COLOR_NO_DATA = "rgb(238, 238, 238)";    // No Data
 
+const DISTRICT_COLORS = {
+  'Crawfordsville': 'rgb(231, 239, 249)',
+  'Fort Wayne': 'rgb(207, 207, 207)',
+  'Greenfield': 'rgb(237, 255, 222)',
+  'La Porte': 'rgb(253, 233, 223)',
+  'Seymour': 'rgb(195, 196, 243)',
+  'Vincennes': 'rgb(244, 158, 170)',
+};
+
 // Removed hardcoded ROUTE_DIRECTIONS_IN in favor of RouteConfig
+
 
 
 const getColor = (mph) => {
@@ -32,14 +42,20 @@ const TrafficHeatmapD3 = forwardRef(({
   selectedMMs = [], onTimeChange, selectedTime,
   showCameraLines = false, showTimeIndicators = true,
   cameraLocations = [],
+  exitLines = [],
+  showExitLines = false,
+  districtBoundaryData = {},
+  districtMode = 0,
   dataVersion = 0,
   children
+
 }, ref) => {
   // Separate canvases for each layer to allow instant CSS toggling
   const carCanvasRef = useRef();
   const truckCanvasRef = useRef();
   const accelCanvasRef = useRef();
   const decelCanvasRef = useRef();
+  const vizzionCanvasRef = useRef();
 
   const svgRef = useRef();
   const sliderTrackRef = useRef();
@@ -90,6 +106,7 @@ const TrafficHeatmapD3 = forwardRef(({
     if (type === 'truck') return truckCanvasRef.current?.getContext('2d');
     if (type === 'accel') return accelCanvasRef.current?.getContext('2d');
     if (type === 'decel') return decelCanvasRef.current?.getContext('2d');
+    if (type === 'vizzion') return vizzionCanvasRef.current?.getContext('2d');
     return null;
   }, []);
 
@@ -130,6 +147,14 @@ const TrafficHeatmapD3 = forwardRef(({
               const actualRectH = (d.mmStep / 0.1) * rectH + 1.0;
               // Center the rectangle on the time bin and mile marker
               ctx.fillRect(x, y - (actualRectH / 2), actualRectW, actualRectH);
+            } else if (d.event_type === 'vizzion') {
+              // Vizzion Drives: brown circles, fixed size 3
+              ctx.fillStyle = "gray";
+              const cx = xOffset + hourScale(d.decimalHour);
+              const cy = yOffset + yScale(d.mm);
+              ctx.beginPath();
+              ctx.arc(cx, cy, 2, 0, 2 * Math.PI);// change the size of the circle here
+              ctx.fill();
             } else {
               // Accel/Decel
               ctx.strokeStyle = d.event_type === 'accel' ? "blue" : "black";
@@ -187,6 +212,7 @@ const TrafficHeatmapD3 = forwardRef(({
     const ctxTruck = setupCanvas(truckCanvasRef);
     const ctxAccel = setupCanvas(accelCanvasRef);
     const ctxDecel = setupCanvas(decelCanvasRef);
+    const ctxVizzion = setupCanvas(vizzionCanvasRef);
 
     const rectH = dynamicRectH;
 
@@ -280,6 +306,75 @@ const TrafficHeatmapD3 = forwardRef(({
           .attr("stroke", "#4c4c4cff")
           .attr("stroke-width", 1);
 
+        // --- Horizontal District Boundaries ---
+        // if (districtBoundaryData[route]) {
+        //   const districts = districtBoundaryData[route];
+
+        //   Object.entries(districts).forEach(([name, bounds]) => {
+        //     const sm = parseFloat(bounds.sm);
+        //     const em = parseFloat(bounds.em);
+        //     const color = DISTRICT_COLORS[name] || "#eee";
+
+        //     const minMM = Math.min(startMM, endMM);
+        //     const maxMM = Math.max(startMM, endMM);
+
+        //     // Fill
+        //     const y1 = yScale(sm);
+        //     const y2 = yScale(em);
+        //     const fillY = Math.min(y1, y2);
+        //     const fillH = Math.abs(y1 - y2);
+
+        //     const rectY = Math.max(0, fillY);
+        //     const rectH = Math.min(chartHeight - rectY, fillH - (rectY - fillY));
+
+        //     if (rectH > 0) {
+        //       g.append("rect")
+        //         .attr("class", "district-fill-layer")
+        //         .attr("x", 0)
+        //         .attr("width", chartWidth)
+        //         .attr("y", rectY)
+        //         .attr("height", rectH)
+        //         .attr("fill", color)
+        //         .attr("opacity", 0.6)
+        //         .style("display", districtMode === 1 ? "inline" : "none")
+        //         .style("pointer-events", "none");
+        //     }
+
+        //     // Lines and Label
+        //     const lineGroup = g.append("g").attr("class", "district-line-layer")
+        //       .style("display", districtMode > 0 ? "inline" : "none");
+
+        //     [sm, em].forEach(loc => {
+        //       if (loc >= minMM && loc <= maxMM) {
+        //         lineGroup.append("line")
+        //           .attr("x1", 0)
+        //           .attr("x2", chartWidth)
+        //           .attr("y1", yScale(loc))
+        //           .attr("y2", yScale(loc))
+        //           .attr("stroke", "#444")
+        //           .attr("stroke-width", 1.5)
+        //           .style("pointer-events", "none");
+        //       }
+        //     });
+
+        //     const midMM = (sm + em) / 2;
+        //     if (midMM >= minMM && midMM <= maxMM) {
+        //       lineGroup.append("text")
+        //         .attr("x", 10)
+        //         .attr("y", yScale(midMM))
+        //         .attr("dy", "0.35em")
+        //         .attr("text-anchor", "start")
+        //         .style("font-family", "sans-serif")
+        //         .style("font-size", "0px")
+        //         .style("font-weight", "bold")
+        //         .style("fill", "#222")
+        //         .style("pointer-events", "none")
+        //         .style("text-shadow", "0px 0px 4px rgba(255,255,255,0.9)")
+        //         .text(name);
+        //     }
+        //   });
+        // }
+
         // --- Horizontal Camera Lines (Pre-rendered, visibility toggled via CSS) ---
         if (cameraLocations.length > 0) {
           const camGroup = g.append("g").attr("class", "camera-lines-layer")
@@ -296,6 +391,42 @@ const TrafficHeatmapD3 = forwardRef(({
                 .attr("stroke", "#333")
                 .attr("stroke-width", 0.5)
                 .style("pointer-events", "none");
+            }
+          });
+        }
+
+        // --- Horizontal Exit Lines ---
+        if (exitLines.length > 0) {
+          const exitGroup = g.append("g").attr("class", "exit-lines-layer")
+            .style("display", showExitLines ? "inline" : "none");
+          exitLines.forEach(ex => {
+            if (ex.interstate_dir.endsWith(` ${dir}`)) {
+              const loc = ex.milepost;
+              const minMM = Math.min(startMM, endMM);
+              const maxMM = Math.max(startMM, endMM);
+              if (loc >= minMM && loc <= maxMM) {
+                exitGroup.append("line")
+                  .attr("x1", 0)
+                  .attr("x2", chartWidth)
+                  .attr("y1", yScale(loc))
+                  .attr("y2", yScale(loc))
+                  .attr("stroke", "#000000ff")
+                  .attr("stroke-width", 0.5)
+                  .style("pointer-events", "none");
+
+                exitGroup.append("text")
+                  .attr("x", chartWidth - 5)
+                  .attr("y", yScale(loc))
+                  .attr("dy", "-0.2em")
+                  .attr("text-anchor", "end")
+                  .style("font-family", "sans-serif")
+                  .style("font-size", "0px")
+                  .style("font-weight", "bold")
+                  .style("fill", "#d45500")
+                  .style("pointer-events", "none")
+                  .style("text-shadow", "0px 0px 3px rgba(255,255,255,0.9)")
+                  .text(`Exit ${ex.exit}`);
+              }
             }
           });
         }
@@ -337,6 +468,7 @@ const TrafficHeatmapD3 = forwardRef(({
       });
     });
 
+
     // --- RE-DRAW EXISTING DATA (if any) ---
     if (Object.keys(groupedData).length > 0) {
       Object.keys(groupedData).forEach(dayStr => {
@@ -360,6 +492,7 @@ const TrafficHeatmapD3 = forwardRef(({
             else if (d.event_type === 'truck') ctx = ctxTruck;
             else if (d.event_type === 'accel') ctx = ctxAccel;
             else if (d.event_type === 'decel') ctx = ctxDecel;
+            else if (d.event_type === 'vizzion') ctx = ctxVizzion;
 
             if (!ctx) return;
 
@@ -372,6 +505,13 @@ const TrafficHeatmapD3 = forwardRef(({
               const actualRectH = (d.mmStep / 0.1) * rectH + 1.0;
               // Center the rectangle on the time bin and mile marker
               ctx.fillRect(x, y - (actualRectH / 2), actualRectW, actualRectH);
+            } else if (d.event_type === 'vizzion') {
+              ctx.fillStyle = "brown";
+              const cx = xOffset + hourScale(d.decimalHour);
+              const cy = yOffset + yScale(d.mm);
+              ctx.beginPath();
+              ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+              ctx.fill();
             } else {
               ctx.strokeStyle = d.event_type === 'accel' ? "blue" : "black";
               ctx.lineWidth = 2;
@@ -387,8 +527,10 @@ const TrafficHeatmapD3 = forwardRef(({
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridLayout, dimensions, startMM, endMM, pointSize, cameraLocations, dataVersion]);
-  // REMOVED `showCameraLines` from dependency array
+  }, [gridLayout, dimensions, startMM, endMM, pointSize, cameraLocations, exitLines, dataVersion, districtBoundaryData]);
+  // REMOVED `showCameraLines`, `showExitLines`, `districtMode` from dependency array
+
+
 
   // 5. EFFECT: Toggle Camera Lines Display (Cheap)
   useEffect(() => {
@@ -396,6 +538,22 @@ const TrafficHeatmapD3 = forwardRef(({
     d3.select(svgRef.current).selectAll(".camera-lines-layer")
       .style("display", showCameraLines ? "inline" : "none");
   }, [showCameraLines]);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    d3.select(svgRef.current).selectAll(".exit-lines-layer")
+      .style("display", showExitLines ? "inline" : "none");
+  }, [showExitLines]);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll(".district-fill-layer")
+      .style("display", districtMode === 1 ? "inline" : "none");
+    svg.selectAll(".district-line-layer")
+      .style("display", districtMode > 0 ? "inline" : "none");
+  }, [districtMode]);
+
 
 
   // --- SLIDER LOGIC ---
@@ -513,6 +671,9 @@ const TrafficHeatmapD3 = forwardRef(({
 
             {/* LAYER 4: DECEL (Black) */}
             <canvas ref={decelCanvasRef} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", zIndex: 4, display: visibleLayers.decel ? 'block' : 'none' }} />
+
+            {/* LAYER V: VIZZION (Brown) */}
+            <canvas ref={vizzionCanvasRef} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", zIndex: 4, display: visibleLayers.vizzion ? 'block' : 'none' }} />
 
             {/* LAYER 5: SVG (Axes, Grid, Interaction) */}
             <svg ref={svgRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 5 }} />

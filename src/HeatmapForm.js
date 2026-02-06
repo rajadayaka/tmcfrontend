@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { ROUTE_OPTIONS, ROUTE_IMAGES, ROUTE_MM_LIMITS } from "./RouteConfig";
 
 
-const STATE_OPTIONS = ["IN", "IL", "MD", "PA"];
+const STATE_OPTIONS = ["IN", "AR", "AL", "AZ", "CA", "CO", "CT", "DC", "DE","FL", "GA", "HI", "IA", "ID", "IL", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"];
 
 const HeatmapForm = ({
   draftFormState,
@@ -21,7 +21,7 @@ const HeatmapForm = ({
     // Find max MM based on current state and route
     const state = draftFormState.state || "IN";
     const route = draftFormState.route;
-    const maxMM = ROUTE_MM_LIMITS[state]?.[route] || 500;
+    const maxMM = ROUTE_MM_LIMITS[state]?.[route];
 
     // ⭐ Clamp Start MM
     if (id === "start_mm") {
@@ -43,7 +43,7 @@ const HeatmapForm = ({
   // ⭐ When Route changes → auto-adjust start & end MM
   const handleRouteSelect = (routeValue) => {
     const state = draftFormState.state || "IN";
-    const maxMM = ROUTE_MM_LIMITS[state]?.[routeValue] || 500;
+    const maxMM = ROUTE_MM_LIMITS[state]?.[routeValue];
 
     const correctedStart = Math.min(draftFormState.start_mm, maxMM);
     const correctedEnd = Math.min(draftFormState.end_mm, maxMM);
@@ -62,7 +62,11 @@ const HeatmapForm = ({
   const handleStateSelect = (stateValue) => {
     // Reset route to first available in new state
     const availableRoutes = ROUTE_OPTIONS[stateValue] || [];
-    const firstRoute = availableRoutes.length > 0 ? availableRoutes[0].value : "";
+    // Sort routes for consistent selection logic if needed, though mostly visual
+    const sortedRoutes = availableRoutes.slice().sort((a, b) =>
+      a.value.localeCompare(b.value, undefined, { numeric: true })
+    );
+    const firstRoute = sortedRoutes.length > 0 ? sortedRoutes[0].value : "";
 
     handleInputChange({
       target: { id: "state", value: stateValue, type: "text" }
@@ -72,7 +76,10 @@ const HeatmapForm = ({
   };
 
   const currentState = draftFormState.state || "IN";
-  const currentRouteOptions = ROUTE_OPTIONS[currentState] || [];
+  // Sort the options for display
+  const currentRouteOptions = (ROUTE_OPTIONS[currentState] || []).slice().sort((a, b) =>
+    a.value.localeCompare(b.value, undefined, { numeric: true })
+  );
 
   const selectedRoute = currentRouteOptions.find(
     (r) => r.value === draftFormState.route
@@ -86,26 +93,28 @@ const HeatmapForm = ({
         style={{ zIndex: 1050 }}
       >
         <div className="container-fluid">
-          <div className="row g-3 align-items-end">
+          <div className="row g-2 align-items-end">
 
             {/* State Dropdown */}
-            <div className="col" style={{ maxWidth: "100px" }}>
-              <label className="form-label fw-semibold">State</label>
+            <div className="col">
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>State</label>
               <div className="dropdown">
                 <button
-                  className="btn btn-outline-secondary dropdown-toggle w-100"
+                  className="btn btn-outline-secondary dropdown-toggle w-100 btn-sm "
                   type="button"
                   data-bs-toggle="dropdown"
+                  style={{ fontSize: "0.8rem" }}
                 >
                   {currentState}
                 </button>
-                <ul className="dropdown-menu shadow-sm">
+                <ul className="dropdown-menu shadow-sm" style={{ maxHeight: "200px", overflowY: "auto" }}>
                   {STATE_OPTIONS.map((st) => (
                     <li key={st}>
                       <button
                         className="dropdown-item"
                         type="button"
                         onClick={() => handleStateSelect(st)}
+                        style={{ fontSize: "0.8rem" }}
                       >
                         {st}
                       </button>
@@ -116,8 +125,8 @@ const HeatmapForm = ({
             </div>
 
             {/* Start Date */}
-            <div className="col" style={{ width: "200px" }}>
-              <label className="form-label fw-semibold">Begin Date</label>
+            <div className="col" style={{ width: "150px", flex: "none" }}>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Begin Date</label>
               <MUIDatePicker
                 value={dayjs(draftFormState.start_date)}
                 views={['year', 'month', 'day']}
@@ -132,14 +141,18 @@ const HeatmapForm = ({
                   })
                 }
                 slotProps={{
-                  textField: { size: "small", fullWidth: true },
+                  textField: {
+                    size: "small",
+                    fullWidth: true,
+                    InputProps: { style: { fontSize: "0.8rem", height: "31px" } }
+                  },
                 }}
               />
             </div>
 
             {/* End Date */}
-            <div className="col" style={{ width: "200px" }}>
-              <label className="form-label fw-semibold">End Date</label>
+            <div className="col" style={{ width: "150px", flex: "none" }}>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>End Date</label>
               <MUIDatePicker
                 value={dayjs(draftFormState.end_date)}
                 views={['year', 'month', 'day']}
@@ -154,24 +167,29 @@ const HeatmapForm = ({
                   })
                 }
                 slotProps={{
-                  textField: { size: "small", fullWidth: true },
+                  textField: {
+                    size: "small",
+                    fullWidth: true,
+                    InputProps: { style: { fontSize: "0.8rem", height: "31px" } }
+                  },
                 }}
               />
             </div>
 
             {/* Route Dropdown */}
             <div className="col">
-              <label className="form-label fw-semibold">Road</label>
-              <div className="dropdown" style={{ width: "80px" }}>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Road</label>
+              <div className="dropdown w-100">
                 <button
-                  className="btn btn-outline bg-white border dropdown-toggle w-100"
+                  className="btn btn-outline bg-white border dropdown-toggle w-100 btn-sm p-0 d-flex align-items-center justify-content-center"
                   type="button"
                   data-bs-toggle="dropdown"
+                  style={{ height: "31px" }}
                 >
                   <img
                     src={ROUTE_IMAGES[currentState]?.[selectedRoute?.value] || ROUTE_IMAGES[currentState]?.[draftFormState.route] || ROUTE_IMAGES.IN["I-64"]}
-                    width="24"
-                    height="24"
+                    width="20"
+                    height="20"
                     className="rounded"
                     alt=""
                   />
@@ -187,8 +205,8 @@ const HeatmapForm = ({
                       >
                         <img
                           src={ROUTE_IMAGES[currentState]?.[route.value]}
-                          width="38"
-                          height="38"
+                          width="30"
+                          height="30"
                           className="rounded border"
                           alt={route.label}
                         />
@@ -199,13 +217,43 @@ const HeatmapForm = ({
               </div>
             </div>
 
+            {/* Timezone Dropdown */}
+            <div className="col">
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>TZ</label>
+              <div className="dropdown">
+                <button
+                  className="btn btn-outline-secondary dropdown-toggle w-100 btn-sm "
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  {draftFormState.timezone || "EST"}
+                </button>
+                <ul className="dropdown-menu shadow-sm" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                  {["EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT", "HST", "HDT"].map((tz) => (
+                    <li key={tz}>
+                      <button
+                        className="dropdown-item"
+                        type="button"
+                        onClick={() => handleInputChange({ target: { id: "timezone", value: tz, type: "text" } })}
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        {tz}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
             {/* Start MM */}
             <div className="col">
-              <label className="form-label fw-semibold">Start MM</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Start MM</label>
               <input
                 type="number"
                 id="start_mm"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.start_mm}
                 onChange={handleInputChangeEnhanced}
               />
@@ -213,11 +261,12 @@ const HeatmapForm = ({
 
             {/* End MM */}
             <div className="col">
-              <label className="form-label fw-semibold">End MM</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>End MM</label>
               <input
                 type="number"
                 id="end_mm"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.end_mm}
                 onChange={handleInputChangeEnhanced}
               />
@@ -225,14 +274,15 @@ const HeatmapForm = ({
 
             {/* Accel */}
             <div className="col">
-              <label className="form-label fw-semibold">Accel</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Accel</label>
               <input
                 type="number"
                 id="accel"
                 step="0.01"
                 min="0"
                 max="0.8"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.accel}
                 onChange={handleInputChange}
               />
@@ -240,14 +290,15 @@ const HeatmapForm = ({
 
             {/* Decel */}
             <div className="col">
-              <label className="form-label fw-semibold">Decel</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Decel</label>
               <input
                 type="number"
                 id="decel"
                 step="0.01"
                 max="-0.01"
                 min="-0.8"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.decel}
                 onChange={handleInputChange}
               />
@@ -255,12 +306,13 @@ const HeatmapForm = ({
 
             {/* Width */}
             <div className="col">
-              <label className="form-label fw-semibold">Width</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Width</label>
               <input
                 type="number"
                 id="width"
                 min="200"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.width}
                 onChange={handleInputChange}
               />
@@ -268,11 +320,12 @@ const HeatmapForm = ({
 
             {/* Height */}
             <div className="col">
-              <label className="form-label fw-semibold">Height</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>Height</label>
               <input
                 type="number"
                 id="height"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.height}
                 onChange={handleInputChange}
               />
@@ -280,11 +333,12 @@ const HeatmapForm = ({
 
             {/* accel and decel size */}
             <div className="col">
-              <label className="form-label fw-semibold">size</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>size</label>
               <input
                 type="number"
                 id="size"
-                className="form-control"
+                className="form-control form-control-sm"
+                style={{ fontSize: "0.8rem" }}
                 value={draftFormState.size}
                 onChange={handleInputChange}
               />
@@ -294,10 +348,11 @@ const HeatmapForm = ({
             <div className="col d-flex align-items-end">
               <button
                 type="submit"
-                className="btn btn-primary w-100 fw-semibold"
+                className="btn btn-primary w-100 fw-semibold btn-sm"
+                style={{ fontSize: "0.8rem" }}
                 disabled={loading}
               >
-                {loading ? "Generating..." : "Generate"}
+                {loading ? "..." : "Generate"}
               </button>
             </div>
           </div>

@@ -11,7 +11,12 @@ function App() {
     <div className="App">
       {/* 2. Define your routes */}
       <Routes>
-        {/* Route for the dynamic parameters with state */}
+        {/* Route for the dynamic parameters with state and timezone */}
+        <Route
+          path="/:state/:start_date/:end_date/:route/:start_mm/:end_mm/:timezone"
+          element={<HeatmapGenerator />}
+        />
+        {/* Supporting existing state-based route */}
         <Route
           path="/:state/:start_date/:end_date/:route/:start_mm/:end_mm"
           element={<HeatmapGenerator />}
